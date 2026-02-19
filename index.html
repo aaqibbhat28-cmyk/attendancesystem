@@ -230,7 +230,46 @@ th{background:#2563eb;color:white}
 
 <div id="attendanceTab" class="hidden">
 <h4><i class="fa-solid fa-location-crosshairs"></i> Mark Attendance</h4>
-<button onclick="markAttendance()"><i class="fa-solid fa-fingerprint"></i> Mark Attendance</button>
+<button onclick="openCamera()"><i class="fa-solid fa-fingerprint"></i> Mark Attendance</button>
+
+<div id="cameraSection" class="hidden" style="margin-top:15px;">
+
+    <!-- Video Wrapper -->
+    <div style="position:relative; width:300px;">
+
+        <video id="video" autoplay playsinline width="300" style="border-radius:10px;"></video>
+
+        <!-- Live Overlay -->
+        <div id="liveOverlay" style="
+            position:absolute;
+            bottom:0;
+            left:0;
+            width:100%;
+            background:rgba(0,0,0,0.65);
+            color:white;
+            font-size:12px;
+            padding:8px;
+            box-sizing:border-box;
+            border-bottom-left-radius:10px;
+            border-bottom-right-radius:10px;
+        ">
+        </div>
+
+    </div>
+
+    <!-- Button OUTSIDE video wrapper -->
+    
+<button id="captureBtn" style="margin-top:10px;" onclick="capturePhoto()" disabled>
+    <i class="fa-solid fa-camera"></i> Waiting for GPS...
+</button>
+
+
+    <canvas id="canvas" class="hidden"></canvas>
+
+</div>
+
+
+
 <div class="geo-status" id="geoStatus"></div>
 <p id="attMsg"></p>
 </div>
@@ -274,7 +313,7 @@ th{background:#2563eb;color:white}
 
 <script>
 
-const API="https://script.google.com/macros/s/AKfycbw3VWQTNwVCMDSN86HZdS4r9GUfe-dTCaQnzTZpUsVa6FIAuwcWC0kq0GzA8hjS8nW6Hg/exec";
+const API="https://script.google.com/macros/s/AKfycbwn82rQLkmwJLsMunlHWqu-Ep384aRxPdMHChLHC-J1YWT3v-e4aMIiVA4Qz1JUW7kQNQ/exec";
 let userRole="",userBlock="",userName="",employeeName="";
 
 
@@ -658,6 +697,213 @@ fetch(API,{method:"POST",body:JSON.stringify({action:"getLeave"})}).then(r=>r.js
 });
 }
 
+let capturedImage = "";
+
+let liveTimeInterval = null;
+let currentLatitude = "Fetching...";
+let currentLongitude = "Fetching...";
+let currentAccuracy = "";
+
+function openCamera(){
+
+    const cameraSection = document.getElementById("cameraSection");
+    const video = document.getElementById("video");
+    const overlay = document.getElementById("liveOverlay");
+ const captureBtn = document.getElementById("captureBtn");
+captureBtn.disabled = true;
+captureBtn.innerHTML = '<i class="fa-solid fa-camera"></i> Waiting for GPS...';
+
+
+    cameraSection.classList.remove("hidden");
+
+    /* ---- Stop previous interval if running ---- */
+    if(liveTimeInterval){
+        clearInterval(liveTimeInterval);
+        liveTimeInterval = null;
+    }
+
+    /* ---- Start Camera ---- */
+    navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: "user",
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+        }
+    })
+    .then(function(stream){
+        video.srcObject = stream;
+    })
+    .catch(function(){
+        alert("Camera permission denied or not available.");
+        return;
+    });
+
+/* ---- Continuous GPS Tracking ---- */
+overlay.innerHTML = "Improving GPS accuracy...";
+
+navigator.geolocation.watchPosition(
+    function(position){
+
+        currentLatitude = position.coords.latitude.toFixed(6);
+        currentLongitude = position.coords.longitude.toFixed(6);
+        currentAccuracy = position.coords.accuracy.toFixed(1) + " m";
+
+        // Allow up to 120 meters for office building use
+        if(position.coords.accuracy <= 200){
+            captureBtn.disabled = false;
+            captureBtn.innerHTML = '<i class="fa-solid fa-camera"></i> Capture Photo';
+        } else {
+            captureBtn.disabled = true;
+            captureBtn.innerHTML = "Improving GPS... (" + currentAccuracy + ")";
+        }
+    },
+    function(){
+        currentLatitude = "Not Available";
+        currentLongitude = "Not Available";
+        currentAccuracy = "Unknown";
+
+        captureBtn.disabled = true;
+        captureBtn.innerHTML = "Location Permission Required";
+    },
+    {
+        enableHighAccuracy: true,
+        maximumAge: 0
+    }
+);
+
+
+
+    /* ---- Live Date & Time ---- */
+    liveTimeInterval = setInterval(function(){
+
+        const now = new Date();
+        const dateStr = now.toLocaleDateString("en-GB");
+        const timeStr = now.toLocaleTimeString("en-GB");
+
+        overlay.innerHTML =
+            "<b>Employee:</b> " + employeeName + "<br>" +
+            "<b>Block:</b> " + userBlock + "<br>" +
+            "<b>Date:</b> " + dateStr + "<br>" +
+            "<b>Time:</b> " + timeStr + "<br>" +
+            "<b>Latitude:</b> " + currentLatitude + "<br>" +
+            "<b>Longitude:</b> " + currentLongitude + "<br>" +
+            "<b>Accuracy:</b> " + currentAccuracy;
+
+    }, 1000);
+}
+
+function capturePhotoWithStamp(video, latitude, longitude, block, employeeName){
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw original image
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const boxHeight = 170;
+
+    // Dark professional overlay
+    ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+    ctx.fillRect(0, canvas.height - boxHeight, canvas.width, boxHeight);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 22px Arial";
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString();
+    const timeStr = now.toLocaleTimeString();
+
+    let yStart = canvas.height - boxHeight + 35;
+
+    ctx.fillText("Employee: " + employeeName, 20, yStart);
+    ctx.fillText("Block: " + block, 20, yStart + 30);
+    ctx.fillText("Date: " + dateStr, 20, yStart + 60);
+    ctx.fillText("Time: " + timeStr, 20, yStart + 90);
+    ctx.fillText("Latitude: " + latitude.toFixed(6), 20, yStart + 120);
+    ctx.fillText("Longitude: " + longitude.toFixed(6), 20, yStart + 150);
+
+    // Border
+    ctx.strokeStyle = "#00ffcc";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(5, canvas.height - boxHeight + 5, canvas.width - 10, boxHeight - 10);
+
+    return canvas.toDataURL("image/jpeg", 0.9);
+}
+
+
+function capturePhoto(){
+
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    ctx.drawImage(video,0,0);
+
+    // Add overlay permanently on image
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(0, canvas.height - 150, canvas.width, 150);
+
+    ctx.fillStyle = "white";
+    ctx.font = "18px Arial";
+
+    const now = new Date();
+
+    ctx.fillText("Employee: " + employeeName, 20, canvas.height - 120);
+    ctx.fillText("Block: " + userBlock, 20, canvas.height - 95);
+    ctx.fillText("Date: " + now.toLocaleDateString(), 20, canvas.height - 70);
+    ctx.fillText("Time: " + now.toLocaleTimeString(), 20, canvas.height - 45);
+    ctx.fillText("Lat: " + currentLatitude, 20, canvas.height - 20);
+    ctx.fillText("Lng: " + currentLongitude, 180, canvas.height - 20);
+
+    capturedImage = canvas.toDataURL("image/jpeg");
+
+    clearInterval(liveTimeInterval);
+
+    markAttendance();
+}
+
+
+function markAttendance(){
+    if(!capturedImage){
+        alert("Please capture photo first");
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(function(pos){
+
+        fetch(API,{
+            method:"POST",
+            body:JSON.stringify({
+                action:"markAttendance",
+                name:employeeName,
+                role:userRole,
+                block:userBlock,
+                latitude:pos.coords.latitude,
+                longitude:pos.coords.longitude,
+                photo:capturedImage
+            })
+        })
+        .then(r=>r.json())
+        .then(res=>{
+            attMsg.innerText = res.message || "Attendance Submitted Successfully";
+            capturedImage = "";
+            document.getElementById("cameraSection").classList.add("hidden");
+            loadCounts();
+            loadReports();
+        });
+
+    });
+}
+
+
+
+
     /* ===== LOADER ===== */
 function showLoader(){document.getElementById("loader").style.display="flex";}
 function hideLoader(){document.getElementById("loader").style.display="none";}
@@ -1000,7 +1246,6 @@ body{
 </div>
 </body>
 </html>
-
 
 
 
