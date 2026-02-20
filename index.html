@@ -211,7 +211,14 @@ th{background:#2563eb;color:white}
 <div class="card" id="loginCard">
 <h3><i class="fa-solid fa-user"></i> Login</h3>
 <input type="text" id="username" placeholder="Username">
-<input type="password" id="password" placeholder="Password">
+<div style="position:relative; max-width:400px;">
+    <input type="password" id="password" placeholder="Password" style="padding-right:40px;">
+    <i class="fa-solid fa-eye" id="togglePassword"
+       onclick="togglePassword()"
+       style="position:absolute; right:12px; top:50%; transform:translateY(-50%);
+              cursor:pointer; color:#64748b;">
+    </i>
+</div>
 <button onclick="login()"><i class="fa-solid fa-right-to-bracket"></i> Login</button>
 <p id="loginMsg" style="color:red;"></p>
 </div>
@@ -313,7 +320,7 @@ th{background:#2563eb;color:white}
 
 <script>
 
-const API="https://script.google.com/macros/s/AKfycbwn82rQLkmwJLsMunlHWqu-Ep384aRxPdMHChLHC-J1YWT3v-e4aMIiVA4Qz1JUW7kQNQ/exec";
+const API="https://script.google.com/macros/s/AKfycbzwO_TotE5IFWLHHTka-pjkfTu8d2LbGS77Iuy78meGEwPJjB4qmFkoCwebOBaDMRPc_A/exec";
 let userRole="",userBlock="",userName="",employeeName="";
 
 
@@ -940,7 +947,7 @@ fetch(API,{
 
 
 /* ================================
-   WORKING GOVERNMENT STYLE PDF
+   WORKING STYLE PDF
 ================================ */
 
 async function downloadFullBlockReportPDF(){
@@ -1185,7 +1192,24 @@ renderReportTable = function(leaveData){
 };
 
 
+/* ================================
+   PASSWORD EYE FEATURE
+================================ */
+function togglePassword() {
+    const passwordField = document.getElementById("password");
+    const icon = document.getElementById("togglePassword");
 
+    if (passwordField.type === "password") {
+        passwordField.type = "text";
+        icon.classList.remove("fa-eye");
+        icon.classList.add("fa-eye-slash");
+    } else {
+        passwordField.type = "password";
+        icon.classList.remove("fa-eye-slash");
+        icon.classList.add("fa-eye");
+    }
+}
+    
 </script>
 
 <style> 
