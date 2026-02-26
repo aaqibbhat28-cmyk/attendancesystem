@@ -192,11 +192,15 @@ th{background:#2563eb;color:white}
 <header>
 <i class="fa-solid fa-location-dot"></i> NRLM | BPM Attendance Portal
     </br>
-
 <span style="color:#facc15; font-weight:400; text-shadow:0 0 6px rgba(250,204,21,0.6);">
               ⚠ Mark at Assigned Office.
 </span>
-
+<div id="liveClock" style="font-size:14px;"></div>
+    <span class="notice-container">
+  <span class="notice-text">
+    NOTE: Mark Before 11:30 AM.
+  </span>
+</span>
 </header>
 
 <div class="loader" id="loader">
@@ -417,19 +421,6 @@ if(tab==="approvalAttendance") {approvalAttendanceTab.classList.remove("hidden")
 if(tab==="report") {reportTab.classList.remove("hidden"); document.querySelector(".tabs button:nth-child(3)").classList.add("activeTab");}
 }
 
-/* ---------- ATTENDANCE ---------- */
-function markAttendance(){
-navigator.geolocation.getCurrentPosition(function(pos){
-fetch(API,{
-method:"POST",
-body:JSON.stringify({action:"markAttendance",name:employeeName,role:userRole,block:userBlock,
-                      latitude:pos.coords.latitude,longitude:pos.coords.longitude})
-}).then(r=>r.json()).then(res=>{
-attMsg.innerText=res.message || "Today Attendance Submitted at Your Office";
-loadCounts(); loadReports();
-});
-});
-}
 
 /* ---------- LEAVE ---------- */
 function applyLeave(){
@@ -615,23 +606,72 @@ function loadAttendanceApprovals(){
   .then(r=>r.json()).then(data=>{attApprovalDataFull=data.slice(1); attApprovalPage=1; renderAttendanceApprovalTable();});
 }
 function renderAttendanceApprovalTable(){
-  let start=(attApprovalPage-1)*attApprovalPageSize;
-  let end=start+attApprovalPageSize;
-  let pageData=attApprovalDataFull.slice(start,end);
-  let html="<tr><th>Name</th><th>Date</th><th>Block</th><th>Status</th><th>Action</th></tr>";
-  pageData.forEach((row,i)=>{
-    const sheetRow = i + 2 + (attApprovalPage-1)*attApprovalPageSize; // Correct row for Sheet
-    if(userRole==="BPM" && row[7]==="Pending_BPM")
-      html+=`<tr><td>${row[1]}</td><td>${new Date(row[0]).toLocaleDateString()}</td><td>${row[3]}</td>
-      <td>${row[7]}</td><td><button onclick="approveAttendance(${sheetRow},'approveAttendanceBPM')">Approve</button></td></tr>`;
-    if(userRole==="Block" && row[7]==="Pending_Block")
-      html+=`<tr><td>${row[1]}</td><td>${new Date(row[0]).toLocaleDateString()}</td><td>${row[3]}</td>
-      <td>${row[7]}</td><td><button onclick="approveAttendance(${sheetRow},'approveAttendanceBlock')">Final Approve</button></td></tr>`;
+
+  // STEP 1: FILTER FIRST
+  let filteredData = attApprovalDataFull.filter(row => {
+
+    if(userRole === "BPM"){
+      return row[7] === "Pending_BPM";
+    }
+
+    if(userRole === "Block"){
+      return row[7] === "Pending_Block";
+    }
+
+    return false;
   });
-  html+=`<tr><td colspan="5"><button onclick="changeAttendanceApprovalPage(-1)">Prev</button>
-  Page ${attApprovalPage} of ${Math.ceil(attApprovalDataFull.length/attApprovalPageSize)}
-  <button onclick="changeAttendanceApprovalPage(1)">Next</button></td></tr>`;
-  approvalAttendanceTable.innerHTML=html;
+
+  // STEP 2: PAGINATE FILTERED DATA
+  let totalPages = Math.ceil(filteredData.length / attApprovalPageSize);
+  if(totalPages === 0) totalPages = 1;
+
+  if(attApprovalPage > totalPages){
+    attApprovalPage = totalPages;
+  }
+
+  let start = (attApprovalPage - 1) * attApprovalPageSize;
+  let end = start + attApprovalPageSize;
+  let pageData = filteredData.slice(start, end);
+
+  // STEP 3: BUILD TABLE
+  let html = "<tr><th>Name</th><th>Date</th><th>Block</th><th>Status</th><th>Action</th></tr>";
+
+  pageData.forEach((row) => {
+
+    const originalIndex = attApprovalDataFull.indexOf(row);
+    const sheetRow = originalIndex + 2;
+
+    if(userRole === "BPM"){
+      html += `<tr>
+        <td>${row[1]}</td>
+        <td>${new Date(row[0]).toLocaleDateString()}</td>
+        <td>${row[3]}</td>
+        <td>${row[7]}</td>
+        <td><button onclick="approveAttendance(${sheetRow},'approveAttendanceBPM')">Approve</button></td>
+      </tr>`;
+    }
+
+    if(userRole === "Block"){
+      html += `<tr>
+        <td>${row[1]}</td>
+        <td>${new Date(row[0]).toLocaleDateString()}</td>
+        <td>${row[3]}</td>
+        <td>${row[7]}</td>
+        <td><button onclick="approveAttendance(${sheetRow},'approveAttendanceBlock')">Final Approve</button></td>
+      </tr>`;
+    }
+
+  });
+
+  html += `<tr>
+    <td colspan="5">
+      <button onclick="changeAttendanceApprovalPage(-1)">Prev</button>
+      Page ${attApprovalPage} of ${totalPages}
+      <button onclick="changeAttendanceApprovalPage(1)">Next</button>
+    </td>
+  </tr>`;
+
+  approvalAttendanceTable.innerHTML = html;
 }
 function changeAttendanceApprovalPage(delta){attApprovalPage=Math.max(1,Math.min(Math.ceil(attApprovalDataFull.length/attApprovalPageSize),attApprovalPage+delta)); renderAttendanceApprovalTable();}
 function approveAttendance(row, action){
@@ -950,6 +990,22 @@ fetch(API,{
    WORKING STYLE PDF
 ================================ */
 
+function extractDriveFileId(link) {
+    const match = link.match(/\/d\/(.*?)\//);
+    return match ? match[1] : null;
+}
+
+async function getBase64ImageFromURL(url) {
+    const res = await fetch(url);
+    const blob = await res.blob();
+
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+    });
+}
+
 async function downloadFullBlockReportPDF(){
 
 const { jsPDF } = window.jspdf;
@@ -998,7 +1054,7 @@ doc.text("Total CLF's = 4 | Total VO's = 45", pageWidth/2, 12, {align:"center"})
 
 doc.setTextColor(0,0,0);
 doc.setFontSize(13);
-doc.text("NRLM Attendance & Leave Monitoring System", pageWidth/2, 30, {align:"center"});
+doc.text("Attendance & Leave Monitoring System", pageWidth/2, 30, {align:"center"});
 
 doc.setFontSize(12);
 doc.text("Block: " + userBlock, pageWidth/2, 38, {align:"center"});
@@ -1031,30 +1087,86 @@ let monthlySummary = {};
 
 /* ===== PROCESS ATTENDANCE ===== */
 
+/* ===== PROCESS ATTENDANCE WITH ABSENT + LEAVE CHECK ===== */
+
+let employeeSet = new Set();
+let attendanceMap = {};
+let leaveMap = {};
+
+/* Collect employees */
 attData.slice(1).forEach(row=>{
+    employeeSet.add(row[1]);
+});
 
-    let fullTimestamp = new Date(row[0]);   // Google Sheet Timestamp
-    let rowDate = new Date(row[0]);
+/* Create attendance map */
+attData.slice(1).forEach(row=>{
+    let rowDate = formatDate(new Date(row[0]));
+    let key = row[1] + "_" + rowDate;
+    attendanceMap[key] = row;
+});
 
-    if(rowDate >= from && rowDate <= to){
+/* Create leave map */
+leaveData.slice(1).forEach(row=>{
+    let leaveStart = new Date(row[3]);
+    let leaveEnd = new Date(row[4]);
 
-        let timeString = fullTimestamp.toLocaleTimeString();
-
-        attendanceRows.push([
-            row[1], 
-            formatDate(rowDate), 
-            timeString,
-            "Present"
-        ]);
-
-        totalAttendance++;
-
-        let key = getMonthYear(rowDate);
-        if(!monthlySummary[key]) monthlySummary[key] = {attendance:0, leave:0};
-        monthlySummary[key].attendance++;
+    for(let d = new Date(leaveStart); d <= leaveEnd; d.setDate(d.getDate()+1)){
+        let key = row[1] + "_" + formatDate(d);
+        leaveMap[key] = row;
     }
 });
 
+/* Loop Date Range */
+for(let d = new Date(from); d <= to; d.setDate(d.getDate()+1)){
+
+    let currentDate = new Date(d);
+    let formattedDate = formatDate(currentDate);
+
+    employeeSet.forEach(name=>{
+
+        let key = name + "_" + formattedDate;
+
+        if(attendanceMap[key]){
+
+            let fullTimestamp = new Date(attendanceMap[key][0]);
+            let timeString = fullTimestamp.toLocaleTimeString();
+
+            attendanceRows.push([
+                name,
+                formattedDate,
+                timeString,
+                "Present"
+            ]);
+
+            totalAttendance++;
+
+            let monthKey = getMonthYear(currentDate);
+            if(!monthlySummary[monthKey]) monthlySummary[monthKey] = {attendance:0, leave:0};
+            monthlySummary[monthKey].attendance++;
+
+        } 
+        else if(leaveMap[key]){
+
+            attendanceRows.push([
+                name,
+                formattedDate,
+                "-",
+                "On Leave"
+            ]);
+
+        } 
+        else {
+
+            attendanceRows.push([
+                name,
+                formattedDate,
+                "-",
+                "Absent"
+            ]);
+        }
+
+    });
+}
 /* ===== PROCESS LEAVE ===== */
 
 leaveData.slice(1).forEach(row=>{
@@ -1089,11 +1201,29 @@ doc.autoTable({
     body: attendanceRows,
     theme: "grid",
     styles: { fontSize: 9 },
-    headStyles: { fillColor: [37,99,235] }
-});
+    headStyles: { fillColor: [37,99,235] },
 
-doc.setFontSize(11);
-doc.text("Total Attendance Entries: " + totalAttendance, 14, doc.lastAutoTable.finalY + 8);
+   didParseCell: function (data) {
+
+    if (data.column.index === 3) {
+
+        if (data.cell.raw === "Absent") {
+            data.cell.styles.textColor = [220,38,38];
+            data.cell.styles.fontStyle = "bold";
+        }
+
+        if (data.cell.raw === "Present") {
+            data.cell.styles.textColor = [16,163,74];
+            data.cell.styles.fontStyle = "bold";
+        }
+
+        if (data.cell.raw === "On Leave") {
+            data.cell.styles.textColor = [37,99,235];
+            data.cell.styles.fontStyle = "bold";
+        }
+    }
+}
+});
 
 /* ===== LEAVE TABLE ===== */
 
@@ -1139,6 +1269,8 @@ doc.autoTable({
     headStyles: { fillColor: [99,102,241] }
 });
 
+
+
 /* ===== PAGE NUMBERS ===== */
 
 const totalPages = doc.internal.getNumberOfPages();
@@ -1154,6 +1286,195 @@ for(let i=1;i<=totalPages;i++){
 }
 
 doc.save("Block_Report_" + userBlock + "_" + formatDate(from) + "_to_" + formatDate(to) + ".pdf");
+}
+
+/* ================================
+   DOWNLOAD EMPLOYEE MONTHLY ONLY
+================================ */
+
+async function downloadEmployeeMonthlyBreakdownPDF(){
+
+const { jsPDF } = window.jspdf;
+const doc = new jsPDF("landscape");
+
+const pageWidth = doc.internal.pageSize.getWidth();
+const pageHeight = doc.internal.pageSize.getHeight();
+
+/* ===== HEADER ===== */
+
+doc.setFillColor(37,99,235);
+doc.rect(0,0,pageWidth,20,"F");
+
+doc.setTextColor(255,255,255);
+doc.setFontSize(16);
+doc.setFont(undefined,"bold");
+doc.text("Attendance Monitoring System", pageWidth/2, 12, {align:"center"});
+
+doc.setTextColor(0,0,0);
+doc.setFontSize(12);
+doc.text("Block: " + userBlock, pageWidth/2, 30, {align:"center"});
+
+let today = new Date().toLocaleDateString();
+doc.setFontSize(10);
+doc.text("Date Generated: " + today, pageWidth - 70, 30);
+
+
+function formatDate(dateObj){
+    let d = ("0" + dateObj.getDate()).slice(-2);
+    let m = ("0" + (dateObj.getMonth()+1)).slice(-2);
+    let y = dateObj.getFullYear();
+    return d + "-" + m + "-" + y;
+}
+
+function getMonthYear(dateObj){
+    const months = ["January","February","March","April","May","June",
+                    "July","August","September","October","November","December"];
+    return months[dateObj.getMonth()] + " " + dateObj.getFullYear();
+}
+
+const fromDate = document.getElementById("reportFromDate").value;
+const toDate = document.getElementById("reportToDate").value;
+
+if(!fromDate || !toDate){
+    alert("Please select From and To dates");
+    return;
+}
+
+let from = new Date(fromDate);
+let to = new Date(toDate);
+to.setHours(23,59,59,999);
+
+/* FETCH DATA */
+const attResponse = await fetch(API,{
+    method:"POST",
+    body:JSON.stringify({action:"getAttendance"})
+});
+const attData = await attResponse.json();
+
+const leaveResponse = await fetch(API,{
+    method:"POST",
+    body:JSON.stringify({action:"getLeave"})
+});
+const leaveData = await leaveResponse.json();
+
+let employeeSet = new Set();
+let attendanceMap = {};
+let leaveMap = {};
+
+/* Collect employees */
+attData.slice(1).forEach(row=>{
+    employeeSet.add(row[1]);
+});
+
+/* Create attendance map */
+attData.slice(1).forEach(row=>{
+    let date = formatDate(new Date(row[0]));
+    attendanceMap[row[1] + "_" + date] = true;
+});
+
+/* Create leave map */
+leaveData.slice(1).forEach(row=>{
+    let leaveStart = new Date(row[3]);
+    let leaveEnd = new Date(row[4]);
+
+    for(let d = new Date(leaveStart); d <= leaveEnd; d.setDate(d.getDate()+1)){
+        let key = row[1] + "_" + formatDate(d);
+        leaveMap[key] = true;
+    }
+});
+
+let employeeMonthly = {};
+
+for(let d = new Date(from); d <= to; d.setDate(d.getDate()+1)){
+
+    let dateObj = new Date(d);
+    if(dateObj.getDay() === 0) continue;
+    let formattedDate = formatDate(dateObj);
+    let monthKey = getMonthYear(dateObj);
+
+    employeeSet.forEach(name=>{
+
+        if(!employeeMonthly[monthKey])
+            employeeMonthly[monthKey] = {};
+
+        if(!employeeMonthly[monthKey][name])
+            employeeMonthly[monthKey][name] = {present:0, leave:0, absent:0};
+
+        let key = name + "_" + formattedDate;
+
+        if(attendanceMap[key])
+            employeeMonthly[monthKey][name].present++;
+        else if(leaveMap[key])
+            employeeMonthly[monthKey][name].leave++;
+        else
+            employeeMonthly[monthKey][name].absent++;
+    });
+}
+
+/* PDF HEADER */
+doc.setFontSize(15);
+doc.setFont(undefined,"bold");
+doc.text("EMPLOYEE MONTHLY BREAKDOWN", pageWidth/2, 45, {align:"center"});
+
+let breakdownRows = [];
+
+Object.keys(employeeMonthly).forEach(month=>{
+    Object.keys(employeeMonthly[month]).forEach(emp=>{
+        let data = employeeMonthly[month][emp];
+        let workingDays = data.present + data.absent;
+
+let percent = workingDays > 0
+    ? ((data.present / workingDays) * 100).toFixed(1) + "%"
+    : "0%";
+
+        breakdownRows.push([
+            month,
+            emp,
+            data.present,
+            data.leave,
+            data.absent,
+            percent,
+	    ""
+        ]);
+    });
+});
+
+doc.autoTable({
+    startY: 55,
+    head: [["Month","Employee","Present","Leave","Absent","Attendance %","Block Remarks"]],
+    body: breakdownRows,
+    theme: "grid",
+    styles: { 
+        fontSize: 9 
+    },
+
+    headStyles: { 
+        fillColor: [99,102,241],
+        halign: 'center'
+    },
+
+    columnStyles: {
+        0: { halign: 'center' },
+        2: { halign: 'center' },
+        3: { halign: 'center' },
+        4: { halign: 'center' },
+        5: { halign: 'center' },
+        6: { halign: 'center' }
+    }
+});
+
+/* ===== PAGE NUMBERS + FOOTER ===== */
+const totalPages = doc.internal.getNumberOfPages();
+
+for(let i=1;i<=totalPages;i++){
+    doc.setPage(i);
+    doc.setFontSize(9);
+    doc.text("Page " + i + " of " + totalPages, pageWidth - 40, pageHeight - 10);
+    doc.text("Attendance System", 14, pageHeight - 10);
+}
+
+doc.save("Employee_Monthly_Breakdown_" + userBlock + ".pdf");
+
 }
 
 
@@ -1183,6 +1504,13 @@ renderReportTable = function(leaveData){
             pdfBtn.innerHTML = "<i class='fa-solid fa-file-pdf'></i> Download PDF";
             pdfBtn.onclick = downloadFullBlockReportPDF;
 
+	const empBtn = document.createElement("button");
+        empBtn.innerHTML = "<i class='fa-solid fa-chart-line'></i> Employee Monthly Breakdown";
+        empBtn.style.marginLeft = "10px";
+        empBtn.onclick = downloadEmployeeMonthlyBreakdownPDF;
+
+container.appendChild(empBtn);
+
             container.appendChild(pdfBtn);
 
             const reportTabDiv = document.getElementById("reportTab");
@@ -1210,9 +1538,66 @@ function togglePassword() {
     }
 }
     
+
+/* Clock */
+
+setInterval(()=>{
+document.getElementById("liveClock").innerText =
+"Current Time: " + new Date().toLocaleTimeString();
+},1000);
 </script>
 
-<style> 
+<style>
+
+/* MARQUEE MESSAGE */
+
+
+.notice-container {
+  display: block; /* important */
+  width: 100%;
+  overflow: hidden;
+  background: linear-gradient(90deg, #fff3cd, #ffe8a1);
+  border: 1px solid #ffeeba;
+  padding: 12px 0;
+  position: relative;
+}
+
+.notice-text {
+  display: inline-block;
+  white-space: nowrap;
+  font-weight: bold;
+  font-size: 20px;
+  color: #856404;
+
+  animation: scrollMove 5s linear infinite alternate,
+             glowPulse 1s ease-in-out infinite;
+}
+
+/* Left ↔ Right Scroll */
+@keyframes scrollMove {
+  0% { transform: translateX(-20%); }
+  100% { transform: translateX(20%); }
+}
+
+/* Glow Effect */
+@keyframes glowPulse {
+  0%, 100% {
+    text-shadow: 
+      0 0 5px #ffc107,
+      0 0 10px #ffc107,
+      0 0 20px #ff9800;
+  }
+  50% {
+    text-shadow: 
+      0 0 10px #ffeb3b,
+      0 0 20px #ff9800,
+      0 0 30px #ff5722;
+  }
+}
+
+
+/* MARQUEE MESSAGE */
+    
 .footer-notice{
     position:fixed;
     bottom:0;
@@ -1257,17 +1642,4 @@ body{
 </div>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
 
