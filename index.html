@@ -5,25 +5,35 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BasantgarhAttendance</title>
+
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+
+<!-- LINK CSS -->
+<link rel="stylesheet" href="css/style.css">
+
+<!-- jsPDF libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-<link rel="stylesheet" href="style.css">    
+
 </head>
+
 <body>
-<script src="script.js"></script>
+
 <header>
 <i class="fa-solid fa-location-dot"></i> NRLM | BPM Attendance Portal
-    </br>
+<br>
 <span style="color:#facc15; font-weight:400; text-shadow:0 0 6px rgba(250,204,21,0.6);">
-              ⚠ Mark at Assigned Office.
+⚠ Mark at Assigned Office.
 </span>
+
 <div id="liveClock" style="font-size:14px;"></div>
-    <span class="notice-container">
-  <span class="notice-text">
-    NOTE: Mark Before 11:30 AM.
-  </span>
+
+<span class="notice-container">
+<span class="notice-text">
+NOTE: Mark Before 11:30 AM.
 </span>
+</span>
+
 </header>
 
 <div class="loader" id="loader">
@@ -146,6 +156,10 @@
 <div class="footer-notice">
 ⚠ All CLF's and VO's Staff Must Mark Daily.
 </div>
+    <!-- LINK JAVASCRIPT -->
+<script src="js/script.js"></script>
+</body>
+</html>
 </body>
 </html>
 
