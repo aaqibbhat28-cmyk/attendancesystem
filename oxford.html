@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oxford Presentation School |  | | FOOD FEST 2026 | |</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;500;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1a0b2e;
+            --accent: #D4AF37; 
+            --text: #ffffff;
+            --subtext: rgba(255, 255, 255, 0.7);
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(212, 175, 55, 0.3);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: #05010a; 
+            color: var(--text); 
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .bg-overlay {
+            position: fixed; inset: 0;
+            background: radial-gradient(circle at top right, #2e0854 0%, transparent 50%),
+                        radial-gradient(circle at bottom left, #1a0b2e 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        .progress-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 6px;
+            background: rgba(255,255,255,0.05); z-index: 1000;
+        }
+        .progress-bar {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, var(--accent), #f3e5ab);
+            box-shadow: 0 0 20px var(--accent);
+        }
+
+        .scene {
+            position: absolute; inset: 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            padding: 5% 8%;
+            opacity: 0;
+            transform: scale(1.05);
+            transition: opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                        transform 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+
+        .scene.active { opacity: 1; transform: scale(1); pointer-events: all; }
+
+        .content { padding-right: 50px; text-align: left; }
+        
+        .logo-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border);
+            display: block;
+        }
+
+        .label { 
+            font-weight: 800; color: var(--accent); 
+            letter-spacing: 5px; text-transform: uppercase; 
+            font-size: 0.85rem; margin-bottom: 20px;
+            display: block;
+        }
+
+        h1 { 
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2.2rem, 4vw, 4rem); 
+            line-height: 1.1; margin-bottom: 25px;
+            background: linear-gradient(to bottom, #fff, var(--subtext));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .description { 
+            font-size: 1.1rem; color: var(--subtext); 
+            line-height: 1.6; margin-bottom: 25px;
+            max-width: 95%;
+        }
+
+        .school-branding {
+            font-size: 1rem; 
+            color: var(--accent);
+            font-weight: 700;
+            letter-spacing: 2px;
+            padding-top: 20px; 
+            border-top: 1px solid var(--border);
+            display: inline-block;
+            text-transform: uppercase;
+        }
+
+        .visual {
+            position: relative;
+            height: 80vh; width: 100%;
+            border-radius: 30px;
+            overflow: hidden;
+            box-shadow: 0 50px 100px rgba(0,0,0,0.6);
+            border: 1px solid var(--border);
+        }
+
+        .visual img { width: 100%; height: 100%; object-fit: cover; }
+
+        .controls {
+            position: fixed; bottom: 30px; right: 30px;
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .btn {
+            background: var(--glass); border: 1px solid var(--border);
+            color: white; padding: 12px 20px; border-radius: 50px;
+            cursor: pointer; font-size: 0.7rem; letter-spacing: 2px;
+            backdrop-filter: blur(10px);
+            transition: 0.3s;
+            text-transform: uppercase;
+        }
+        .btn:hover { background: var(--accent); color: var(--primary); }
+        .btn.active-btn { background: var(--accent); color: var(--primary); }
+
+        .state-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .state-chip {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--subtext);
+        }
+
+        @media (max-width: 900px) {
+            .scene { grid-template-columns: 1fr; padding: 10% 5%; }
+            .visual { height: 40vh; margin-top: 20px; }
+            .content { padding-right: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-overlay"></div>
+    <div class="progress-container"><div class="progress-bar" id="bar"></div></div>
+    
+    <div class="controls">
+        <button class="btn" onclick="togglePause()" id="pBtn">⏸ PAUSE SLIDE</button>
+        <button class="btn" onclick="toggleMusic()" id="mBtn">🎵 ENABLE SCHOOL AUDIO</button>
+    </div>
+
+    <audio id="bgMusic" loop>
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="slider">
+        <div class="scene active" data-time="6000">
+            <div class="content">
+                <img src="https://media.licdn.com/dms/image/v2/D560BAQEh4nqICwIUQA/company-logo_200_200/B56ZU.un3ZGoAM-/0/1740514166359?e=2147483647&v=beta&t=SawgchB0wGKERN7z8MyReGEDA26cIHI8f_fMCKn4Tug" class="logo-icon" alt="School Logo">
+                <span class="label"><b>Teacher Incharge: Sadaf Rasool</b></span>
+				<h2>Grade 6th</h2>
+                <h1>WELCOME TO FOOD FEST<br>2026</h1>
+                <p class="description">Welcome to the celebration of delicious cuisines and cultural unity.</p>
+                <div class="school-branding">Oxford Presentation School Anantnag</div>
+                <div class="school-branding"> | | FOOD FEST 2026 | |</div>
+            </div>
+            <div class="visual"><img src="https://media.istockphoto.com/id/1397973112/photo/assortment-of-various-kinds-of-indian-cousine-on-dark-rusty-table.jpg?s=612x612&w=0&k=20&c=R5XnXgP1jWnGM5PF7OUfvLW_NQhAcaGuJlWp6hl0SoQ=" alt="Indian Food Highlights"></div>
+        </div>
+
+        <div class="scene" data-time="7000">
+            <div class="content">
+                <img src="https://media.licdn.com/dms/image/v2/D560BAQEh4nqICwIUQA/company-logo_200_200/B56ZU.un3ZGoAM-/0/1740514166359?e=2147483647&v=beta&t=SawgchB0wGKERN7z8MyReGEDA26cIHI8f_fMCKn4Tug" class="logo-icon" alt="School Logo">
+                <span class="label">Geographic Roots</span>
+                <h1>Neighbouring Countries</h1>
+                <div class="state-list">
+                    <span class="state-chip">Pakistan</span><span class="state-chip">Nepal</span><span class="state-chip">Bhutan</span>
+                    <span class="state-chip">China</span><span class="state-chip">Bangladesh</span><span class="state-chip">Myanmar</span><span class="state-chip">Sri Lanka</span>
+                </div>
+                <p class="description">Honoring the diverse culinary influences from across our borders.</p>
+                <div class="school-branding">Oxford Presentation School Anantnag</div>
+                <div class="school-branding"> | | FOOD FEST 2026 | |</div>
+            </div>
+            <div class="visual"><img src="https://upsccolorfullnotes.com/wp-content/uploads/2023/06/neighbouring-countries-of-india-and-their-capitals.jpg" alt="Map of Neighbouring Countries"></div>
+        </div>
+
+        <div class="scene" data-time="8000">
+            <div class="content">
+                <img src="https://media.licdn.com/dms/image/v2/D560BAQEh4nqICwIUQA/company-logo_200_200/B56ZU.un3ZGoAM-/0/1740514166359?e=2147483647&v=beta&t=SawgchB0wGKERN7z8MyReGEDA26cIHI8f_fMCKn4Tug" class="logo-icon" alt="School Logo">
+                <span class="label">Regional Discovery</span>
+                <h1>North India</h1>
+                <div class="state-list">
+                    <span class="state-chip">Jammu & Kashmir</span><span class="state-chip">Himachal Pradesh</span><span class="state-chip">Punjab</span><span class="state-chip">Haryana</span><span class="state-chip">Uttarakhand</span><span class="state-chip">Delhi</span>
+                </div>
+                <p class="description">Experience the rich, hearty flavors and stunning landscapes of the North.</p>
+                <div class="school-branding">Oxford Presentation School Anantnag</div>
+                <div class="school-branding"> | | FOOD FEST 2026 | |</div>
+            </div>
+            <div class="visual"><img src="https://c4.wallpaperflare.com/wallpaper/944/315/765/rock-snowy-mountain-landscape-himalayas-wallpaper-preview.jpg" alt="Himalayan Landscapes"></div>
+        </div>
+
+        <div class="scene" data-time="8000">
+            <div class="content">
+                <img src="https://media.licdn.com/dms/image/v2/D560BAQEh4nqICwIUQA/company-logo_200_200/B56ZU.un3ZGoAM-/0/1740514166359?e=2147483647&v=beta&t=SawgchB0wGKERN7z8MyReGEDA26cIHI8f_fMCKn4Tug" class="logo-icon" alt="School Logo">
+                <span class="label">Regional Discovery</span>
+                <h1>South India</h1>
+                <div class="state-list">
+                    <span class="state-chip">Kerala</span><span class="state-chip">Tamil Nadu</span><span class="state-chip">Karnataka</span><span class="state-chip">Andhra Pradesh</span><span class="state-chip">Telangana</span>
+                </div>
+                <p class="description">A vibrant showcase of coastal spices and traditional fermented delicacies.</p>
+                <div class="school-branding">Oxford Presentation School Anantnag</div>
+                <div class="school-branding"> | | FOOD FEST 2026 | |</div>
+            </div>
+            <div class="visual"><img src="https://indialegacy.in/wp-content/uploads/2026/01/south-indian-food-platter.png" alt="South Indian Food Platter"></div>
+        </div>
+
+        <div class="scene" data-time="8000">
+            <div class="content">
+                <img src="https://media.licdn.com/dms/image/v2/D560BAQEh4nqICwIUQA/company-logo_200_200/B56ZU.un3ZGoAM-/0/1740514166359?e=2147483647&v=beta&t=SawgchB0wGKERN7z8MyReGEDA26cIHI8f_fMCKn4Tug" class="logo-icon" alt="School Logo">
+                <span class="label">Regional Discovery</span>
+                <h1>East India</h1>
+                <div class="state-list">
+                    <span class="state-chip">West Bengal</span><span class="state-chip">Odisha</span><span class="state-chip">Bihar</span><span class="state-chip">Jharkhand</span>
+                </div>
+                <p class="description">Indulge in traditional sweets and the unique essence of the East.</p>
+                <div class="school-branding">Oxford Presentation School Anantnag</div>
+                <div class="school-branding"> | | FOOD FEST 2026 | |</div>
+            </div>
+            <div class="visual"><img src="https://cdn.create.vista.com/api/media/small/115223922/stock-photo-bangladesh-or-indias-favourite-sweet-rasgulla-dry-rasgulla-bengal-sweets-made-of-milk-khoya-sweet" alt="East Indian Sweets"></div>
+        </div>
+
+        <div class="scene" data-time="8000">
+            <div class="content">
+                <img src="https://media.licdn.com/dms/image/v2/D560BAQEh4nqICwIUQA/company-logo_200_200/B56ZU.un3ZGoAM-/0/1740514166359?e=2147483647&v=beta&t=SawgchB0wGKERN7z8MyReGEDA26cIHI8f_fMCKn4Tug" class="logo-icon" alt="School Logo">
+                <span class="label">Regional Discovery</span>
+                <h1>West India</h1>
+                <div class="state-list">
+                    <span class="state-chip">Rajasthan</span><span class="state-chip">Gujarat</span><span class="state-chip">Maharashtra</span><span class="state-chip">Goa</span>
+                </div>
+                <p class="description">From the golden deserts to the vibrant coastal flavors of the West.</p>
+                <div class="school-branding">Oxford Presentation School Anantnag</div>
+                <div class="school-branding"> | | FOOD FEST 2026 | |</div>
+            </div>
+            <div class="visual"><img src="https://www.farepayer.com/wp-content/uploads/2025/07/10-Best-Places-to-Visit-in-Rajasthan.jpeg" alt="Rajasthan Desert Sunset"></div>
+        </div>
+
+        <div class="scene" data-time="8000">
+            <div class="content">
+                <img src="https://media.licdn.com/dms/image/v2/D560BAQEh4nqICwIUQA/company-logo_200_200/B56ZU.un3ZGoAM-/0/1740514166359?e=2147483647&v=beta&t=SawgchB0wGKERN7z8MyReGEDA26cIHI8f_fMCKn4Tug" class="logo-icon" alt="School Logo">
+                <span class="label">Grand Finale</span>
+                <h1>Unity in Diversity</h1>
+                <p class="description">Celebrating traditional dishes, cultural unity, and the spirit of our student stalls.</p>
+                <div class="school-branding">Oxford Presentation School Anantnag</div>
+                <div class="school-branding"> | | FOOD FEST 2026 | |</div>
+            </div>
+            <div class="visual"><img src="https://www.shutterstock.com/image-vector/traditional-eid-celebration-feast-indian-260nw-2743462759.jpg" alt="Group Cultural Celebration"></div>
+        </div>
+
+        <div class="scene" data-time="10000">
+            <div class="content">
+                <img src="https://media.licdn.com/dms/image/v2/D560BAQEh4nqICwIUQA/company-logo_200_200/B56ZU.un3ZGoAM-/0/1740514166359?e=2147483647&v=beta&t=SawgchB0wGKERN7z8MyReGEDA26cIHI8f_fMCKn4Tug" class="logo-icon" alt="School Logo">
+                <span class="label">Closing Presentation</span>
+                <h1>THANK YOU</h1>
+                <p class="description">We hope you enjoyed the journey through our flavors and traditions. Happy  | | FOOD FEST 2026 | |!</p>
+                <div class="school-branding">Oxford Presentation School Anantnag</div>
+                <div class="school-branding">Teacher Incharge: Sadaf Rasool</div>
+            </div>
+            <div class="visual"><img src="https://images.unsplash.com/photo-1517433367423-c7e5b0f35086?q=80&w=2000&auto=format&fit=crop" alt="Thank You Visual"></div>
+        </div>
+    </div>
+
+    <script>
+        const scenes = document.querySelectorAll('.scene');
+        const progress = document.getElementById('bar');
+        const music = document.getElementById('bgMusic');
+        const mBtn = document.getElementById('mBtn');
+        const pBtn = document.getElementById('pBtn');
+
+        let current = 0;
+        let timer, barInterval;
+        let isPaused = false;
+        let startTime, remainingTime;
+        let currentDuration;
+
+        function startSlide(resumeDuration = null) {
+            if (isPaused) return;
+
+            if (resumeDuration === null) {
+                scenes.forEach(s => s.classList.remove('active'));
+                scenes[current].classList.add('active');
+                currentDuration = parseInt(scenes[current].getAttribute('data-time'));
+            }
+
+            const duration = resumeDuration || currentDuration;
+            startTime = Date.now();
+            remainingTime = duration;
+
+            clearInterval(barInterval);
+            barInterval = setInterval(() => {
+                if (isPaused) return;
+                
+                let elapsedTotal = currentDuration - remainingTime + (Date.now() - startTime);
+                let width = (elapsedTotal / currentDuration) * 100;
+                progress.style.width = Math.min(width, 100) + '%';
+            }, 20);
+
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+                if (!isPaused) {
+                    current = (current + 1) % scenes.length;
+                    startSlide();
+                }
+            }, duration);
+        }
+
+        function togglePause() {
+            if (!isPaused) {
+                isPaused = true;
+                clearTimeout(timer);
+                clearInterval(barInterval);
+                remainingTime -= (Date.now() - startTime);
+                pBtn.innerText = "▶ RESUME SLIDE";
+                pBtn.classList.add('active-btn');
+            } else {
+                isPaused = false;
+                pBtn.innerText = "⏸ PAUSE SLIDE";
+                pBtn.classList.remove('active-btn');
+                startSlide(remainingTime);
+            }
+        }
+
+        function toggleMusic() {
+            if (music.paused) {
+                music.play();
+                mBtn.innerText = "🎵 MUSIC: ON";
+                mBtn.classList.add('active-btn');
+            } else {
+                music.pause();
+                mBtn.innerText = "🎵 MUSIC: OFF";
+                mBtn.classList.remove('active-btn');
+            }
+        }
+
+        window.onload = () => startSlide();
+    </script>
+</body>
+</html>
